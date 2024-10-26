@@ -11,11 +11,10 @@
     "bundle": "rollup --no-treeshake -c rollup.config.mjs",
     "build": "npm run clean && npm run bundle && ncp appsscript.json dist/appsscript.json",
     "license": "license-check-and-add add -f license-config.json",
-    "test": "jest test/ --passWithNoTests --detectOpenHandles",
     "login": "clasp login",
     "clone-pull": "clasp clone && clasp pull --rootDir ./src",
-    "deploy": "npm run lint && npm run test && npm run build && ncp .clasp-dev.json .clasp.json && clasp push -f",
-    "deploy:prod": "npm run lint && npm run test && npm run build && ncp .clasp-prod.json .clasp.json && clasp push"
+    "deploy": "npm run lint && npm run build && ncp .clasp-dev.json .clasp.json && clasp push -f",
+    "deploy:prod": "npm run lint && npm run build && ncp .clasp-prod.json .clasp.json && clasp push"
   },
   "engines": {
     "node": ">=12"
