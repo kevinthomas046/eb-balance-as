@@ -13,6 +13,66 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-<script>
-    console.log('Loaded');
+<script type="importmap">
+  {
+    "imports": {
+      "gridjs": "https://unpkg.com/gridjs?module"
+    }
+  }
+</script>
+
+<script type="module">
+  import { Grid } from 'gridjs';
+
+  const gridInstance = new Grid({
+    columns: [
+      {
+        id: 'name',
+        name: 'Name',
+      },
+      {
+        id: 'classBalance',
+        name: 'Class Balance',
+      },
+      {
+        id: 'additionalFees',
+        name: 'Additional Fees',
+      },
+      {
+        id: 'paymentTotal',
+        name: 'Payment Total',
+      },
+      {
+        id: 'balance',
+        name: 'Balance',
+      },
+    ],
+    data: [],
+    sort: true,
+  }).render(document.getElementById('balance-info-table'));
+
+  const dateInput = document.getElementById('balance-by-date');
+  dateInput.addEventListener('change', onDateChange);
+
+  function onDateChange(event) {
+    const pickedDate = event.target.value;
+    console.log(pickedDate);
+
+    gridInstance
+      .updateConfig({
+        data: () => {
+          return new Promise((resolve, reject) => {
+            google.script.run
+              .withFailureHandler(() => {
+                reject('Failed to get data');
+              })
+              .withSuccessHandler(balanceData => {
+                resolve(Array.from(balanceData));
+              })
+              .getBalancesByDate(pickedDate);
+          });
+        },
+      })
+      .forceRender();
+  }
 </script>

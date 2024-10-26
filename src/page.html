@@ -18,12 +18,17 @@ limitations under the License.
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Elevation Beats: Attendance</title>
+    <title>Elevation Beats: Balance Admin</title>
+    <link
+      href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css"
+      rel="stylesheet"
+    />
     <?!= include('stylesheet'); ?>
   </head>
   <body>
     <main>
-      <div class="loader"></div>
+      <input type="date" id="balance-by-date" />
+      <div id="balance-info-table"></div>
     </main>
     <?!= include('javascript'); ?>
   </body>
