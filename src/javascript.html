@@ -46,9 +46,22 @@ limitations under the License.
         id: 'balance',
         name: 'Balance',
       },
+      {
+        id: 'upcomingClassBalance',
+        name: 'Upcoming Month Balance'
+      },
+      {
+        id: 'coversUpcomingClasses',
+        name: 'Covers Current Month',
+        formatter: (cell) => cell ? '✅' : '❌'
+      }
     ],
     data: [],
     sort: true,
+    search: true,
+    resizable: true,
+    fixedHeader: true,
+    height: '600px'
   }).render(document.getElementById('balance-info-table'));
 
   const dateInput = document.getElementById('balance-by-date');
