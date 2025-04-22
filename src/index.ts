@@ -89,18 +89,25 @@ function getBalancesByDate(filterDate: string) {
   const paymentData = getSheetByName(SHEETS.PAYMENTS);
 
   const groupedStudents = studentsData.reduce(
-    (groupedStudents, [id, , familyId, classGroupId, isActive]) => {
+    (
+      groupedStudents,
+      [id, , familyId, classGroupId, recitalClassGroupId, isActive]
+    ) => {
       groupedStudents[familyId] ??= [];
       groupedStudents[familyId].push({
         id,
         classGroupId,
+        recitalClassGroupId,
         isActive,
       });
       return groupedStudents;
     },
     {} as Record<
       string,
-      Record<'id' | 'classGroupId' | 'isActive', string | number | boolean>[]
+      Record<
+        'id' | 'classGroupId' | 'recitalClassGroupId' | 'isActive',
+        string | number | boolean
+      >[]
     >
   );
 
@@ -149,9 +156,12 @@ function getBalancesByDate(filterDate: string) {
       if (!hasActiveStudents) return familyBalance;
 
       const studentIdsInFamily = studentsInFamily.map(({ id }) => id);
-      const studentClassGroups = studentsInFamily.map(
-        ({ classGroupId }) => classGroupId
-      );
+      const studentClassGroups = studentsInFamily
+        .map(({ classGroupId, recitalClassGroupId }) => [
+          classGroupId,
+          recitalClassGroupId,
+        ])
+        .flat();
 
       const upcomingClasses = classData.slice(1).filter(upcomingClass => {
         const [, classGroupId, classDate] = upcomingClass;
