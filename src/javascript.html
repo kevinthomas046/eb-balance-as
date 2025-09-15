@@ -24,6 +24,17 @@ limitations under the License.
 <script type="module">
   import { Grid } from 'gridjs';
 
+  /**
+   * @see https://gridjs.io/docs/examples/react
+   * name: familyName,
+      classFees,
+      additionalFees,
+      paymentTotal,
+      balance,
+      isPaidInFull: balance * -1 >= 0,
+      credits: 0,
+   */
+
   const gridInstance = new Grid({
     columns: [
       {
@@ -31,8 +42,8 @@ limitations under the License.
         name: 'Name',
       },
       {
-        id: 'classBalance',
-        name: 'Class Balance',
+        id: 'classFees',
+        name: 'Class Fees',
       },
       {
         id: 'additionalFees',
@@ -47,14 +58,14 @@ limitations under the License.
         name: 'Balance',
       },
       {
-        id: 'upcomingClassBalance',
-        name: 'Upcoming Month Balance'
+        id: 'isPaidInFull',
+        name: 'Is Paid In Full',
+        formatter: (cell) => cell ? '✅' : '❌'
       },
       {
-        id: 'coversUpcomingClasses',
-        name: 'Covers Current Month',
-        formatter: (cell) => cell ? '✅' : '❌'
-      }
+        id: 'credits',
+        name: 'Credits'
+      },
     ],
     data: [],
     sort: true,
