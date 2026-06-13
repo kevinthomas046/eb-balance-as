@@ -27,6 +27,7 @@ const SHEETS = {
   CLASSES: 'Classes',
   CLASS_GROUPS: 'ClassGroups',
   ADDITIONAL_FEES: 'AdditionalFees',
+  ABSENCE: 'Absence',
 };
 
 /**
@@ -267,4 +268,267 @@ function getBalancesByDate(filterDate: string) {
     });
     return familyBalance;
   }, []);
+}
+
+interface FamilySummary {
+  familyId: number;
+  familyName: string;
+  balance: number;
+  credit: number;
+  refunds: number;
+  paymentDates: Date[];
+  classFees: number;
+  additionalCharges: number;
+  additionalCredits: number;
+  cancelledCredits: number;
+  paymentTotal: number;
+}
+
+interface StudentRecord {
+  studentId: number;
+  familyId: number;
+  classGroupId: number;
+  active: boolean;
+  startDate: number | null;
+  endDate: number | null;
+}
+
+interface ClassRecord {
+  date: number;
+  price: number;
+  cancelled: boolean;
+}
+
+interface AbsenceRecord {
+  start: number | null;
+  end: number | null;
+}
+
+interface FinancialSummaryMap {
+  [familyId: number]: FamilySummary;
+}
+
+function buildFinancialSummary(): FinancialSummaryMap {
+  const students = getSheetByName(SHEETS.STUDENTS);
+  const classes = getSheetByName(SHEETS.CLASSES);
+  const classGroups = getSheetByName(SHEETS.CLASS_GROUPS);
+  const payments = getSheetByName(SHEETS.PAYMENTS);
+  const additionalFees = getSheetByName(SHEETS.ADDITIONAL_FEES);
+  const absences = getSheetByName(SHEETS.ABSENCE);
+  const families = getSheetByName(SHEETS.FAMILIES);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayMs = today.getTime();
+
+  const familyMap: FinancialSummaryMap = {};
+
+  // Families
+  families.forEach(([familyId, familyName]) => {
+    familyMap[familyId as number] = {
+      familyId: familyId as number,
+      familyName: String(familyName),
+      balance: 0,
+      credit: 0,
+      refunds: 0,
+      paymentDates: [],
+      classFees: 0,
+      additionalCharges: 0,
+      additionalCredits: 0,
+      cancelledCredits: 0,
+      paymentTotal: 0,
+    };
+  });
+
+  // Class Group Prices
+  const classGroupPriceMap = new Map<number, number>();
+
+  classGroups.forEach(([groupId, , price]) => {
+    classGroupPriceMap.set(groupId as number, Number(price) || 0);
+  });
+
+  // Absences
+  const absenceMap = new Map<number, AbsenceRecord[]>();
+
+  absences.forEach(([studentId, startDate, endDate]) => {
+    const record: AbsenceRecord = {
+      start: startDate ? new Date(startDate as Date).getTime() : null,
+      end: endDate ? new Date(endDate as Date).getTime() : null,
+    };
+
+    const existing = absenceMap.get(studentId as number) ?? [];
+
+    existing.push(record);
+
+    absenceMap.set(studentId as number, existing);
+  });
+
+  // Classes By Group
+  const classesByGroup = new Map<number, ClassRecord[]>();
+
+  classes.forEach(([, classGroupId, classDate, classPrice, cancelled]) => {
+    const groupId = classGroupId as number;
+
+    const classRecord: ClassRecord = {
+      date: new Date(classDate as Date).getTime(),
+      price: Number(classPrice) || classGroupPriceMap.get(groupId) || 0,
+      cancelled: Boolean(cancelled),
+    };
+
+    const existing = classesByGroup.get(groupId) ?? [];
+
+    existing.push(classRecord);
+
+    classesByGroup.set(groupId, existing);
+  });
+
+  // Student → Family Map
+  const studentFamilyMap = new Map<number, number>();
+
+  students.forEach(([studentId, , familyId]) => {
+    studentFamilyMap.set(studentId as number, familyId as number);
+  });
+
+  // Student Processing
+  students.forEach(student => {
+    const [studentId, , familyId, classGroupId, active, startDate, endDate] =
+      student;
+
+    if (!active) {
+      return;
+    }
+
+    const family = familyMap[familyId as number];
+
+    if (!family) {
+      return;
+    }
+
+    const startMs = startDate ? new Date(startDate as Date).getTime() : null;
+
+    const endMs = endDate ? new Date(endDate as Date).getTime() : null;
+
+    const studentAbsences = absenceMap.get(studentId as number) ?? [];
+
+    const groupClasses = classesByGroup.get(classGroupId as number) ?? [];
+
+    for (const cls of groupClasses) {
+      if (startMs && cls.date < startMs) continue;
+      if (endMs && cls.date > endMs) continue;
+
+      const absent = studentAbsences.some(
+        absence =>
+          (!absence.start || cls.date >= absence.start) &&
+          (!absence.end || cls.date <= absence.end)
+      );
+
+      if (absent) continue;
+
+      if (cls.date < todayMs) {
+        family.classFees += cls.price;
+      }
+
+      if (cls.cancelled && cls.date < todayMs) {
+        family.cancelledCredits += cls.price;
+      }
+    }
+  });
+
+  // Additional Fees
+  additionalFees.forEach(([, studentId, , , price]) => {
+    const familyId = studentFamilyMap.get(studentId as number);
+
+    if (!familyId) {
+      return;
+    }
+
+    const family = familyMap[familyId];
+
+    const amount = Number(price) || 0;
+
+    if (amount > 0) {
+      family.additionalCharges += amount;
+    } else {
+      family.additionalCredits += amount;
+    }
+  });
+
+  // Payments
+  payments.forEach(([, familyId, paymentDate, amountPaid]) => {
+    const family = familyMap[familyId as number];
+
+    if (!family) {
+      return;
+    }
+
+    const amount = Number(amountPaid) || 0;
+
+    family.paymentDates.push(new Date(paymentDate as Date));
+
+    family.paymentTotal += Math.abs(amount);
+
+    if (amount < 0) {
+      family.refunds += Math.abs(amount);
+    }
+  });
+
+  // Final Calculations
+  Object.values(familyMap).forEach(family => {
+    const balance =
+      family.classFees + family.additionalCharges - family.paymentTotal;
+
+    const overpaymentCredit = Math.abs(Math.min(balance, 0));
+
+    family.balance = Math.max(balance, 0);
+
+    family.credit =
+      family.cancelledCredits +
+      family.additionalCredits +
+      overpaymentCredit -
+      family.refunds;
+  });
+
+  return familyMap;
+}
+
+function getActiveFamilyFinancialReport(): (Omit<
+  FamilySummary,
+  'paymentDates'
+> & { paymentDates: string[] })[] {
+  const summaryMap = buildFinancialSummary();
+
+  const students = getSheetByName(SHEETS.STUDENTS);
+
+  const activeFamilyIds = [
+    ...new Set(
+      students.filter(row => row[4] === true).map(row => row[2] as number)
+    ),
+  ];
+
+  const activeFamilyData = activeFamilyIds.map(familyId => {
+    const familySummary = summaryMap[familyId];
+
+    return {
+      familyId: familySummary.familyId,
+      familyName: familySummary.familyName,
+      balance: familySummary.balance,
+      credit: familySummary.credit,
+      refunds: familySummary.refunds,
+      paymentDates: familySummary.paymentDates.map(d => d.toLocaleDateString()),
+      classFees: familySummary.classFees,
+      additionalCharges: familySummary.additionalCharges,
+      additionalCredits: familySummary.additionalCredits,
+      cancelledCredits: familySummary.cancelledCredits,
+      paymentTotal: familySummary.paymentTotal,
+    };
+  });
+
+  console.log('Summary Data', activeFamilyData);
+
+  return activeFamilyData;
+}
+
+function printData() {
+  console.log(getActiveFamilyFinancialReport());
 }

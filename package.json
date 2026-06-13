@@ -11,6 +11,7 @@
     "bundle": "rollup --no-treeshake -c rollup.config.mjs",
     "build": "npm run clean && npm run bundle && ncp appsscript.json dist/appsscript.json",
     "license": "license-check-and-add add -f license-config.json",
+    "clasp": "clasp",
     "login": "clasp login",
     "clone-pull": "clasp clone && clasp pull --rootDir ./src",
     "deploy": "npm run lint && npm run build && ncp .clasp-dev.json .clasp.json && clasp push -f",
